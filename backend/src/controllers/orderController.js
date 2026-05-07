@@ -1,10 +1,10 @@
 const db  = require('../config/db');
 
 // lấy danh sách tất cả đơn hàng
-const getAllOrders = (req, res) => {
+const getAllOrders = async(req, res) => {
     try {
-        const orders = db.prepare('SELECT * FROM orders ORDER BY created_at DESC').all();
-        res.json(orders);
+        const result = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
+        res.json(result.rows);
     } catch (error) {
         console.error('Error fetching orders:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -12,10 +12,11 @@ const getAllOrders = (req, res) => {
 };
 
 // Lấy chi tiết đơn hàng theo ID
-const getOrderById = (req, res) => {
+const getOrderById = async(req, res) => {
     try {
         const { id } = req.params;
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+        const result = await db.query('SELECT * FROM orders WHERE id = $1', [id]);
+        const order = result.rows[0];
         if(!order) {
             return res.status(404).json({ error: 'Order not found' });
         }
@@ -27,62 +28,42 @@ const getOrderById = (req, res) => {
 };
 
 // POST create order 
-const createOrder = (req, res) => {
-    try{
+const createOrder = async (req, res) => {
+    try {
         const { customer_name, phone, product_name, quantity, total_price, status, note } = req.body;
-        // validate cơ bản
         if (!customer_name || !product_name || quantity == null || total_price == null) {
-            return res.status(400).json({ error: 'Missing required fields : customer_name, product_name, quantity, total_price' });
-        } 
-        const stmt = db.prepare(`
-            INSERT INTO orders (customer_name, phone, product_name, quantity, total_price, status, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-          `);
-          const result = stmt.run(
-            customer_name,
-            phone || null,
-            product_name,
-            quantity,
-            total_price,
-            status || 'pending',
-            note || null
-          );
-          res.status(201).json({
-            id: result.lastInsertRowid,
-            ...req.body,
-            status: status || 'pending',
-            created_at: new Date().toISOString()
-          });
-        } catch (error) {
-          console.error('Error creating order:', error.message);
-          res.status(500).json({ error: 'Internal server error' });
+            return res.status(400).json({ error: 'Missing required fields: customer_name, product_name, quantity, total_price' });
         }
+        const result = await db.query(
+            `INSERT INTO orders (customer_name, phone, product_name, quantity, total_price, status, note)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING *`,
+            [customer_name, phone || null, product_name, quantity, total_price, status || 'pending', note || null]
+        );
+        const newOrder = result.rows[0];
+        res.status(201).json(newOrder);
+    } catch (error) {
+        console.error('Error creating order:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
 
 // PUT update status 
-const updateOrderStatus = (req, res) => {
+const updateOrderStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
-
-        // validate status
         const allowedStatus = ['pending', 'processing', 'shipping', 'completed', 'cancelled'];
-        if(!status || !allowedStatus.includes(status)) {
+        if (!status || !allowedStatus.includes(status)) {
             return res.status(400).json({ error: `Invalid status. Allowed: ${allowedStatus.join(', ')}` });
         }
-
-        // kiểm tra order có tồn tại không
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        if(!order) {
+        const check = await db.query('SELECT * FROM orders WHERE id = $1', [id]);
+        if (!check.rows[0]) {
             return res.status(404).json({ error: 'Order not found' });
         }
-
-        const stmt = db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-        stmt.run(status, id);
-
-        // quay lại cập nhật order
-        const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        res.json(updatedOrder);    
+        await db.query('UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [status, id]);
+        const result = await db.query('SELECT * FROM orders WHERE id = $1', [id]);
+        res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating order status:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -90,14 +71,14 @@ const updateOrderStatus = (req, res) => {
 };
 
 // Xóa đơn hàng
-const deleteOrder = (req, res) => {
+const deleteOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        if(!order) {
+        const result = await db.query('SELECT * FROM orders WHERE id = $1', [id]);
+        if (!result.rows[0]) {
             return res.status(404).json({ error: 'Order not found' });
         }
-        db.prepare('DELETE FROM orders WHERE id = ?').run(id);
+        await db.query('DELETE FROM orders WHERE id = $1', [id]);
         res.json({ message: 'Order deleted successfully' });
     } catch (error) {
         console.error('Error deleting order:', error);
