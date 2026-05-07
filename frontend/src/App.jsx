@@ -9,75 +9,6 @@ import {
   updateStatus,
 } from './api/orderApi.js'
 
-function createMockOrders() {
-  // Mock data để thử UI khi backend chưa sẵn sàng (chỉ nên dùng ở môi trường dev).
-  const now = Date.now()
-  const iso = (msAgo) => new Date(now - msAgo).toISOString()
-
-  return [
-    {
-      id: 1001,
-      customer_name: 'Nguyễn Văn An',
-      phone: '0901234567',
-      product_name: 'Áo thun basic',
-      quantity: 2,
-      total_price: 298000,
-      status: 'pending',
-      note: 'Giao giờ hành chính',
-      created_at: iso(1000 * 60 * 60 * 6),
-      updated_at: iso(1000 * 60 * 10),
-    },
-    {
-      id: 1002,
-      customer_name: 'Trần Thị Bình',
-      phone: '0987654321',
-      product_name: 'Giày sneaker',
-      quantity: 1,
-      total_price: 799000,
-      status: 'confirmed',
-      note: '',
-      created_at: iso(1000 * 60 * 60 * 30),
-      updated_at: iso(1000 * 60 * 60 * 2),
-    },
-    {
-      id: 1003,
-      customer_name: 'Lê Quốc Cường',
-      phone: '0911222333',
-      product_name: 'Tai nghe Bluetooth',
-      quantity: 1,
-      total_price: 459000,
-      status: 'shipping',
-      note: 'Gọi trước khi giao',
-      created_at: iso(1000 * 60 * 60 * 54),
-      updated_at: iso(1000 * 60 * 30),
-    },
-    {
-      id: 1004,
-      customer_name: 'Phạm Thu Dung',
-      phone: '0933444555',
-      product_name: 'Bình giữ nhiệt 500ml',
-      quantity: 3,
-      total_price: 357000,
-      status: 'completed',
-      note: 'Xuất hoá đơn giúp mình',
-      created_at: iso(1000 * 60 * 60 * 90),
-      updated_at: iso(1000 * 60 * 60 * 24),
-    },
-    {
-      id: 1005,
-      customer_name: 'Hoàng Gia Huy',
-      phone: '0977000111',
-      product_name: 'Balo laptop 15"',
-      quantity: 1,
-      total_price: 520000,
-      status: 'cancelled',
-      note: 'Khách đổi ý',
-      created_at: iso(1000 * 60 * 60 * 12),
-      updated_at: iso(1000 * 60 * 60 * 3),
-    },
-  ]
-}
-
 function App() {
   const [orders, setOrders] = useState([])
   const [loadingList, setLoadingList] = useState(false)
@@ -86,7 +17,6 @@ function App() {
   const toastTimerRef = useRef(null)
 
   const apiUrlHint = useMemo(() => import.meta.env.VITE_API_URL, [])
-  const [usingMock, setUsingMock] = useState(false)
 
   function showToast(type, message) {
     setToast({ type, message })
@@ -100,15 +30,8 @@ function App() {
       const data = await getOrders()
       const list = Array.isArray(data) ? data : data?.data || data?.orders
       setOrders(Array.isArray(list) ? list : [])
-      setUsingMock(false)
     } catch (e) {
-      if (import.meta.env.DEV) {
-        setOrders(createMockOrders())
-        setUsingMock(true)
-        showToast('error', 'Không tải được từ API. Đang hiển thị dữ liệu mẫu để thử giao diện.')
-      } else {
-        showToast('error', e.message || 'Không tải được danh sách đơn hàng.')
-      }
+      showToast('error', e.message || 'Không tải được danh sách đơn hàng.')
     } finally {
       setLoadingList(false)
     }
@@ -124,16 +47,7 @@ function App() {
       } catch (e) {
         if (!cancelled) {
           const extra = apiUrlHint ? '' : ' (Vui lòng cấu hình VITE_API_URL)'
-          if (import.meta.env.DEV) {
-            setOrders(createMockOrders())
-            setUsingMock(true)
-            showToast(
-              'error',
-              `Không thể kết nối máy chủ${extra}. Đang hiển thị dữ liệu mẫu để thử giao diện.`,
-            )
-          } else {
-            showToast('error', `${e.message || 'Không thể kết nối máy chủ.'}${extra}`)
-          }
+          showToast('error', `${e.message || 'Không thể kết nối máy chủ.'}${extra}`)
         }
       } finally {
         if (!cancelled) loadOrders()
@@ -195,7 +109,6 @@ function App() {
           <span className="hint">
             API: <span className="mono">{apiUrlHint || '(chưa cấu hình)'}</span>
           </span>
-          {usingMock ? <span className="hint">Đang dùng dữ liệu mẫu</span> : null}
         </div>
       </header>
 
