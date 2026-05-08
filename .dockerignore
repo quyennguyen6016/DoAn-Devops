@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+**/node_modules
+**/dist
+**/coverage
+**/.DS_Store
+**/npm-debug.log
+backend/database/*.db
+backend/database/*.db-shm
+backend/database/*.db-wal
