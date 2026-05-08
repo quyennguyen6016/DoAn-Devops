@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import OrderForm from './components/OrderForm.jsx'
 import OrderList from './components/OrderList.jsx'
 import {
@@ -16,12 +16,10 @@ function App() {
   const [toast, setToast] = useState(null)
   const toastTimerRef = useRef(null)
 
-  const apiUrlHint = useMemo(() => import.meta.env.VITE_API_URL, [])
-
   function showToast(type, message) {
     setToast({ type, message })
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 3500)
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 4000)
   }
 
   async function loadOrders() {
@@ -46,8 +44,7 @@ function App() {
         if (!cancelled) showToast('success', 'Kết nối máy chủ thành công.')
       } catch (e) {
         if (!cancelled) {
-          const extra = apiUrlHint ? '' : ' (Vui lòng cấu hình VITE_API_URL)'
-          showToast('error', `${e.message || 'Không thể kết nối máy chủ.'}${extra}`)
+          showToast('error', e.message || 'Không thể kết nối máy chủ.')
         }
       } finally {
         if (!cancelled) loadOrders()
@@ -60,7 +57,6 @@ function App() {
       cancelled = true
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleCreate(payload) {
@@ -76,13 +72,25 @@ function App() {
     }
   }
 
+  const STATUS_LABELS = {
+    pending: 'Chờ xác nhận',
+    processing: 'Đang xử lý',
+    shipping: 'Đang giao',
+    completed: 'Hoàn tất',
+    cancelled: 'Đã hủy',
+  }
+
   async function handleUpdateStatus(id, status) {
+    const label = STATUS_LABELS[status] || status
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status } : o)),
+    )
     try {
       await updateStatus(id, status)
-      showToast('success', 'Cập nhật trạng thái thành công.')
-      await loadOrders()
+      showToast('success', `Cập nhật trạng thái thành "${label}" thành công.`)
     } catch (e) {
       showToast('error', e.message || 'Cập nhật trạng thái thất bại.')
+      await loadOrders()
     }
   }
 
@@ -101,18 +109,16 @@ function App() {
       <header className="topbar">
         <div>
           <div className="brandTitle">Hệ thống Theo dõi Đơn hàng</div>
-          <div className="brandSub">
-            Quản lý đơn: tạo mới, cập nhật trạng thái và xoá.
-          </div>
+          <div className="brandSub">Quản lý đơn: tạo mới, cập nhật trạng thái và xoá</div>
         </div>
         <div className="topbarRight">
           <span className="hint">
-            API: <span className="mono">{apiUrlHint || '(chưa cấu hình)'}</span>
+            {import.meta.env.VITE_API_URL || 'chưa-cấu-hình'}
           </span>
         </div>
       </header>
 
-      <main className="layout">
+      <div className="pageContent">
         <OrderForm onCreate={handleCreate} loading={creating} />
         <OrderList
           orders={orders}
@@ -121,16 +127,20 @@ function App() {
           onUpdateStatus={handleUpdateStatus}
           onDelete={handleDelete}
         />
-      </main>
+      </div>
 
-      {toast ? (
+      {toast && (
         <div className={`toast ${toast.type}`} role="status" aria-live="polite">
+          <span className="toastIcon">{toast.type === 'success' ? '\u2713' : '\u2717'}</span>
           <div className="toastMsg">{toast.message}</div>
-          <button className="toastClose" type="button" onClick={() => setToast(null)}>
-            Đóng
+          <button className="toastClose" type="button" onClick={() => setToast(null)} title="Đóng">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
