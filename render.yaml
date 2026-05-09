@@ -1,0 +1,45 @@
+services:
+  - name: order-system-backend
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: order-system-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: order-system-db
+          property: connectionString
+
+  - name: order-system-frontend
+    type: web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: order-system-backend
+          envVarKey: RENDER_EXTERNAL_URL
+
+databases:
+  - name: order-system-db
+    plan: free
+    region: singapore
+    postgresMajorVersion: "18"
+    databaseName: devops
+    user: devops_user
